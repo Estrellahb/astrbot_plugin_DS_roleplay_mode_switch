@@ -1,7 +1,6 @@
 name: astrbot_plugin_DS_roleplay_mode_switch
 display_name: DS Roleplay Mode Switch
-desc: 为首轮对话追加角色扮演或思维模式提示词的 AstrBot 插件。
-version: v1.0.0
+desc: 为会话持续追加角色扮演或思维模式提示词的 AstrBot 插件。
+version: v1.1.0
 author: Estrellahb
 repo: "https://github.com/Estrellahb/astrbot_plugin_DS_roleplay_mode_switch"
-
