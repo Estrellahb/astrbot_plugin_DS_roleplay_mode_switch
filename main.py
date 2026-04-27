@@ -1,24 +1,81 @@
-from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
+from astrbot.api import AstrBotConfig
+from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star, register
-from astrbot.api import logger
 
-@register("helloworld", "YourName", "一个简单的 Hello World 插件", "1.0.0")
-class MyPlugin(Star):
-    def __init__(self, context: Context):
+
+DEFAULT_ROLEPLAY_PROMPT = """【角色沉浸要求】在你的思考过程（<think>标签内）中，请遵守以下规则：
+1. 请以角色第一人称进行内心独白，用括号包裹内心活动，例如"（心想：……）"或"(内心OS：……)"
+2. 用第一人称描写角色的内心感受，例如"我心想""我觉得""我暗自"等
+3. 思考内容应沉浸在角色中，通过内心独白分析剧情和规划回复"""
+
+DEFAULT_THINKING_PROMPT = """【思维模式要求】在你的思考过程（<think>标签内）中，请遵守以下规则：
+1. 禁止使用圆括号包裹内心独白，例如"（心想：……）"或"(内心OS：……)"，所有分析内容直接陈述即可
+2. 禁止以角色第一人称描写内心活动，例如"我心想""我觉得""我暗自"等，请用分析性语言替代
+3. 思考内容应聚焦于剧情走向分析和回复内容规划，不要在思考中进行角色扮演式的内心戏表演"""
+
+
+@register(
+    "astrbot_plugin_deepseek_v4_cosplay",
+    "vvx",
+    "为首轮对话追加 DeepSeek V4 角色扮演或思维模式提示词。",
+    "1.0.0",
+)
+class DeepSeekV4CosplayPlugin(Star):
+    ROLEPLAY_COMMANDS = ("角色扮演", "roleplay", "rp")
+    THINKING_COMMANDS = ("思维模式", "thinking", "think")
+
+    def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
+        self.config = config
 
-    async def initialize(self):
-        """可选择实现异步的插件初始化方法，当实例化该插件类之后会自动调用该方法。"""
+    @staticmethod
+    def _extract_payload(message: str | None, command_names: tuple[str, ...]) -> str:
+        raw_message = (message or "").strip()
+        for command_name in sorted(command_names, key=len, reverse=True):
+            if raw_message == command_name:
+                return ""
+            if raw_message.startswith(command_name):
+                suffix = raw_message[len(command_name) :]
+                if not suffix or suffix[:1].isspace():
+                    return suffix.lstrip()
+        return ""
 
-    # 注册指令的装饰器。指令名为 helloworld。注册成功后，发送 `/helloworld` 就会触发这个指令，并回复 `你好, {user_name}!`
-    @filter.command("helloworld")
-    async def helloworld(self, event: AstrMessageEvent):
-        """这是一个 hello world 指令""" # 这是 handler 的描述，将会被解析方便用户了解插件内容。建议填写。
-        user_name = event.get_sender_name()
-        message_str = event.message_str # 用户发的纯文本消息字符串
-        message_chain = event.get_messages() # 用户所发的消息的消息链 # from astrbot.api.message_components import *
-        logger.info(message_chain)
-        yield event.plain_result(f"Hello, {user_name}, 你发了 {message_str}!") # 发送一条纯文本消息
+    @staticmethod
+    def _compose_prompt(user_text: str, suffix_prompt: str) -> str:
+        return f"{user_text.rstrip()}\n\n{suffix_prompt.strip()}"
 
-    async def terminate(self):
-        """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
+    def _get_prompt(self, config_key: str, default_prompt: str) -> str:
+        configured_prompt = str(self.config.get(config_key, "") or "").strip()
+        return configured_prompt or default_prompt
+
+    @filter.command("角色扮演", alias={"roleplay", "rp"})
+    async def roleplay(self, event: AstrMessageEvent):
+        """把首轮对话与 DeepSeek V4 角色沉浸提示词拼接后发送给 LLM。"""
+        payload = self._extract_payload(event.message_str, self.ROLEPLAY_COMMANDS)
+        if not payload:
+            yield event.plain_result("用法：/角色扮演 你的首轮对话")
+            return
+
+        event.should_call_llm(True)
+        yield event.request_llm(
+            prompt=self._compose_prompt(
+                payload,
+                self._get_prompt("roleplay_prompt", DEFAULT_ROLEPLAY_PROMPT),
+            )
+        )
+
+    @filter.command("思维模式", alias={"thinking", "think"})
+    async def thinking_mode(self, event: AstrMessageEvent):
+        """把首轮对话与 DeepSeek V4 思维模式提示词拼接后发送给 LLM。"""
+        payload = self._extract_payload(event.message_str, self.THINKING_COMMANDS)
+        if not payload:
+            yield event.plain_result("用法：/思维模式 你的首轮对话")
+            return
+
+        event.should_call_llm(True)
+        yield event.request_llm(
+            prompt=self._compose_prompt(
+                payload,
+                self._get_prompt("thinking_prompt", DEFAULT_THINKING_PROMPT),
+            )
+        )
