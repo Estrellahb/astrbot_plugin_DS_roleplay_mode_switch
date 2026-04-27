@@ -36,6 +36,11 @@
 已关闭自动模式注入，并清空当前对话上下文。
 ```
 
+## 注意事项
+
+- 不建议与额外的角色扮演类 `system prompt` 混用。
+- 本插件默认以 `user prompt + 对话历史` 方式维持角色状态；混用 `system prompt` 可能导致模型过度服从系统规则，影响剧情连续性。
+
 ## 配置
 
 插件遵循 AstrBot Star 插件配置规范，提供以下可视化配置项：
@@ -61,5 +66,4 @@
 ## 参考
 
 https://github.com/victorchen96/deepseek_v4_rolepaly_instruct/tree/main
-
 
