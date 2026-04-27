@@ -15,7 +15,7 @@ DEFAULT_THINKING_PROMPT = """【思维模式要求】在你的思考过程（<th
 
 
 @register(
-    "astrbot_plugin_deepseek_v4_cosplay",
+    "astrbot_plugin_DS_roleplay_mode_switch",
     "vvx",
     "为首轮对话追加 DeepSeek V4 角色扮演或思维模式提示词。",
     "1.0.0",

@@ -1,4 +1,4 @@
-# astrbot_plugin_deepseek_v4_cosplay
+# astrbot_plugin_DS_roleplay_mode_switch
 
 为 AstrBot 添加两个首轮增强指令：
 
